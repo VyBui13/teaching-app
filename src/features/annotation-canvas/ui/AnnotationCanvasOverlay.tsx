@@ -3,6 +3,9 @@ import type { ToolSettings, ToolType } from '../../../types/annotation';
 import { AnnotationEntity } from '../domain/AnnotationEntity';
 import {
   type Point,
+  type BoundingBox,
+  type ResizeHandleType,
+  getHitHandle,
   drawSmoothPath,
   drawArrow,
   drawRectangle,
@@ -62,6 +65,19 @@ export const AnnotationCanvasOverlay: React.FC<Props> = ({
   const [dragDelta, setDragDelta] = useState<Point>({ x: 0, y: 0 });
   const [hoveredAnnotationId, setHoveredAnnotationId] = useState<string | null>(null);
 
+  // Resizing state for Canvas Shapes (8-Handle System)
+  const [isResizingAnnotation, setIsResizingAnnotation] = useState(false);
+  const [activeResizeHandle, setActiveResizeHandle] = useState<ResizeHandleType | null>(null);
+  const [resizeStartPos, setResizeStartPos] = useState<Point | null>(null);
+  const [resizeOriginalAnn, setResizeOriginalAnn] = useState<AnnotationEntity | null>(null);
+  const [resizeCurrentBounds, setResizeCurrentBounds] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [hoveredHandle, setHoveredHandle] = useState<ResizeHandleType | null>(null);
+
   const selectedAnnotation = annotations.find((a) => a.id === selectedAnnotationId) || null;
 
   // Sync selected annotation up to parent ONLY if an annotation is actively selected on this slide page
@@ -102,9 +118,8 @@ export const AnnotationCanvasOverlay: React.FC<Props> = ({
       if (ann.type === 'text') return; // PPT Text shapes are rendered in DOM overlay
 
       ctx.save();
-      const isSelected = ann.id === selectedAnnotationId && isDraggingAnnotation;
-      const dx = isSelected ? dragDelta.x : 0;
-      const dy = isSelected ? dragDelta.y : 0;
+      const isSelectedResizing = ann.id === selectedAnnotationId && isResizingAnnotation && resizeCurrentBounds;
+      const isSelectedDragging = ann.id === selectedAnnotationId && isDraggingAnnotation;
 
       const color = ann.color;
       const strokeWidth = ann.strokeWidth;
@@ -112,48 +127,84 @@ export const AnnotationCanvasOverlay: React.FC<Props> = ({
 
       if (ann.type === 'pencil') {
         if (ann.points && ann.points.length > 0) {
-          const pointsToDraw = isSelected
+          const dx = isSelectedDragging ? dragDelta.x : 0;
+          const dy = isSelectedDragging ? dragDelta.y : 0;
+          const pointsToDraw = isSelectedDragging
             ? ann.points.map((pt) => ({ x: pt.x + dx, y: pt.y + dy }))
             : ann.points;
           drawSmoothPath(ctx, pointsToDraw, color, strokeWidth, opacity);
         }
-      } else if (ann.type === 'rectangle' && ann.x !== undefined && ann.y !== undefined) {
-        drawRectangle(ctx, ann.x + dx, ann.y + dy, ann.width || 0, ann.height || 0, color, ann.fillColor, strokeWidth);
-      } else if (ann.type === 'circle' && ann.x !== undefined && ann.y !== undefined) {
-        drawCircle(ctx, ann.x + dx, ann.y + dy, ann.width || 0, ann.height || 0, color, ann.fillColor, strokeWidth);
-      } else if (ann.type === 'arrow' && ann.x !== undefined && ann.y !== undefined) {
-        drawArrow(ctx, ann.x + dx, ann.y + dy, ann.x + (ann.width || 0) + dx, ann.y + (ann.height || 0) + dy, color, strokeWidth);
-      } else if (ann.type === 'line' && ann.x !== undefined && ann.y !== undefined) {
-        ctx.strokeStyle = color;
-        ctx.lineWidth = strokeWidth;
-        ctx.beginPath();
-        ctx.moveTo(ann.x + dx, ann.y + dy);
-        ctx.lineTo(ann.x + (ann.width || 0) + dx, ann.y + (ann.height || 0) + dy);
-        ctx.stroke();
+      } else if (ann.x !== undefined && ann.y !== undefined) {
+        const dx = isSelectedDragging ? dragDelta.x : 0;
+        const dy = isSelectedDragging ? dragDelta.y : 0;
+
+        const renderX = isSelectedResizing ? resizeCurrentBounds.x : ann.x + dx;
+        const renderY = isSelectedResizing ? resizeCurrentBounds.y : ann.y + dy;
+        const renderW = isSelectedResizing ? resizeCurrentBounds.width : (ann.width || 0);
+        const renderH = isSelectedResizing ? resizeCurrentBounds.height : (ann.height || 0);
+
+        if (ann.type === 'rectangle' || ann.type === 'shape') {
+          drawRectangle(ctx, renderX, renderY, renderW, renderH, color, ann.fillColor, strokeWidth, ann.borderStyle);
+        } else if (ann.type === 'circle') {
+          drawCircle(ctx, renderX, renderY, renderW, renderH, color, ann.fillColor, strokeWidth, ann.borderStyle);
+        } else if (ann.type === 'arrow') {
+          drawArrow(ctx, renderX, renderY, renderX + renderW, renderY + renderH, color, strokeWidth, ann.borderStyle);
+        } else if (ann.type === 'line') {
+          if (color && color !== 'transparent' && ann.borderStyle !== 'none' && strokeWidth > 0) {
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = strokeWidth;
+            if (ann.borderStyle === 'dashed') ctx.setLineDash([8, 6]);
+            else if (ann.borderStyle === 'dotted') ctx.setLineDash([3, 4]);
+            else ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.moveTo(renderX, renderY);
+            ctx.lineTo(renderX + renderW, renderY + renderH);
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
       }
       ctx.restore();
     });
 
-    // 2. Render Selection Bounding Box for canvas shapes (non-text)
+    // 2. Render 8-Handle Selection Bounding Box for canvas shapes (non-text)
     if (selectedAnnotation && selectedAnnotation.type !== 'text') {
-      const origBounds = getAnnotationBounds(selectedAnnotation);
-      const dx = isDraggingAnnotation ? dragDelta.x : 0;
-      const dy = isDraggingAnnotation ? dragDelta.y : 0;
-      const currentBounds = {
-        ...origBounds,
-        minX: origBounds.minX + dx,
-        maxX: origBounds.maxX + dx,
-        minY: origBounds.minY + dy,
-        maxY: origBounds.maxY + dy,
-      };
+      let currentBounds: BoundingBox;
+
+      if (isResizingAnnotation && resizeCurrentBounds) {
+        currentBounds = {
+          minX: resizeCurrentBounds.x,
+          minY: resizeCurrentBounds.y,
+          maxX: resizeCurrentBounds.x + resizeCurrentBounds.width,
+          maxY: resizeCurrentBounds.y + resizeCurrentBounds.height,
+          width: resizeCurrentBounds.width,
+          height: resizeCurrentBounds.height,
+        };
+      } else {
+        const origBounds = getAnnotationBounds(selectedAnnotation);
+        const dx = isDraggingAnnotation ? dragDelta.x : 0;
+        const dy = isDraggingAnnotation ? dragDelta.y : 0;
+        currentBounds = {
+          ...origBounds,
+          minX: origBounds.minX + dx,
+          maxX: origBounds.maxX + dx,
+          minY: origBounds.minY + dy,
+          maxY: origBounds.maxY + dy,
+        };
+      }
       drawSelectionBox(ctx, currentBounds);
     }
 
-    // 3. Render live drawing preview (Pencil, Rectangle, Circle, Arrow, Line)
+    // 3. Render live drawing preview (Pencil, Rectangle, Circle, Arrow, Line, Shape)
     if (isDrawing && toolSettings.activeTool !== 'text') {
       ctx.save();
       const strokeColor = toolSettings.strokeColor;
       const strokeWidth = toolSettings.strokeWidth;
+      const borderStyle = toolSettings.borderStyle;
+      const effectiveShapeTool = toolSettings.activeTool === 'shape'
+        ? (toolSettings.selectedShapeType || 'rectangle')
+        : toolSettings.activeTool;
 
       if (toolSettings.activeTool === 'pencil' && currentPoints.length > 0) {
         drawSmoothPath(ctx, currentPoints, strokeColor, strokeWidth, 1);
@@ -161,19 +212,24 @@ export const AnnotationCanvasOverlay: React.FC<Props> = ({
         const w = dragCurrent.x - dragStart.x;
         const h = dragCurrent.y - dragStart.y;
 
-        if (toolSettings.activeTool === 'rectangle') {
-          drawRectangle(ctx, dragStart.x, dragStart.y, w, h, strokeColor, toolSettings.fillColor, strokeWidth);
-        } else if (toolSettings.activeTool === 'circle') {
-          drawCircle(ctx, dragStart.x, dragStart.y, w, h, strokeColor, toolSettings.fillColor, strokeWidth);
-        } else if (toolSettings.activeTool === 'arrow') {
-          drawArrow(ctx, dragStart.x, dragStart.y, dragCurrent.x, dragCurrent.y, strokeColor, strokeWidth);
-        } else if (toolSettings.activeTool === 'line') {
-          ctx.strokeStyle = strokeColor;
-          ctx.lineWidth = strokeWidth;
-          ctx.beginPath();
-          ctx.moveTo(dragStart.x, dragStart.y);
-          ctx.lineTo(dragCurrent.x, dragCurrent.y);
-          ctx.stroke();
+        if (effectiveShapeTool === 'rectangle') {
+          drawRectangle(ctx, dragStart.x, dragStart.y, w, h, strokeColor, toolSettings.fillColor, strokeWidth, borderStyle);
+        } else if (effectiveShapeTool === 'circle') {
+          drawCircle(ctx, dragStart.x, dragStart.y, w, h, strokeColor, toolSettings.fillColor, strokeWidth, borderStyle);
+        } else if (effectiveShapeTool === 'arrow') {
+          drawArrow(ctx, dragStart.x, dragStart.y, dragCurrent.x, dragCurrent.y, strokeColor, strokeWidth, borderStyle);
+        } else if (effectiveShapeTool === 'line') {
+          if (strokeColor && strokeColor !== 'transparent' && borderStyle !== 'none' && strokeWidth > 0) {
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = strokeWidth;
+            if (borderStyle === 'dashed') ctx.setLineDash([8, 6]);
+            else if (borderStyle === 'dotted') ctx.setLineDash([3, 4]);
+            else ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.moveTo(dragStart.x, dragStart.y);
+            ctx.lineTo(dragCurrent.x, dragCurrent.y);
+            ctx.stroke();
+          }
         }
       }
       ctx.restore();
@@ -196,22 +252,21 @@ export const AnnotationCanvasOverlay: React.FC<Props> = ({
     height,
     annotations,
     selectedAnnotation,
+    selectedAnnotationId,
     isDraggingAnnotation,
+    isResizingAnnotation,
+    resizeCurrentBounds,
     dragDelta,
     isDrawing,
+    toolSettings,
     currentPoints,
     dragStart,
     dragCurrent,
     eraserPos,
-    toolSettings,
   ]);
 
   useEffect(() => {
-    let animId: number;
-    animId = requestAnimationFrame(() => {
-      redrawCanvas();
-    });
-    return () => cancelAnimationFrame(animId);
+    redrawCanvas();
   }, [redrawCanvas]);
 
   const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement>): Point => {
@@ -220,6 +275,7 @@ export const AnnotationCanvasOverlay: React.FC<Props> = ({
     const rect = canvas.getBoundingClientRect();
     const scaleX = width / rect.width;
     const scaleY = height / rect.height;
+
     return {
       x: (e.clientX - rect.left) * scaleX,
       y: (e.clientY - rect.top) * scaleY,
@@ -244,7 +300,36 @@ export const AnnotationCanvasOverlay: React.FC<Props> = ({
     const tool = toolSettings.activeTool;
 
     if (tool === 'select') {
-      // Find top-most annotation hit by cursor
+      // 1. Check if user clicked a handle on the currently selected shape
+      if (selectedAnnotation && selectedAnnotation.type !== 'text') {
+        const bounds = isResizingAnnotation && resizeCurrentBounds
+          ? {
+              minX: resizeCurrentBounds.x,
+              minY: resizeCurrentBounds.y,
+              maxX: resizeCurrentBounds.x + resizeCurrentBounds.width,
+              maxY: resizeCurrentBounds.y + resizeCurrentBounds.height,
+              width: resizeCurrentBounds.width,
+              height: resizeCurrentBounds.height,
+            }
+          : getAnnotationBounds(selectedAnnotation);
+
+        const hitHandle = getHitHandle(pos, bounds, 12);
+        if (hitHandle) {
+          setIsResizingAnnotation(true);
+          setActiveResizeHandle(hitHandle);
+          setResizeStartPos(pos);
+          setResizeOriginalAnn(selectedAnnotation);
+          setResizeCurrentBounds({
+            x: selectedAnnotation.x || bounds.minX,
+            y: selectedAnnotation.y || bounds.minY,
+            width: selectedAnnotation.width || bounds.width,
+            height: selectedAnnotation.height || bounds.height,
+          });
+          return;
+        }
+      }
+
+      // 2. Find top-most annotation hit by cursor
       let hitAnn: AnnotationEntity | null = null;
       for (let i = annotations.length - 1; i >= 0; i--) {
         const ann = annotations[i];
@@ -290,12 +375,58 @@ export const AnnotationCanvasOverlay: React.FC<Props> = ({
     const tool = toolSettings.activeTool;
 
     if (tool === 'select') {
+      // 1. Handle active 8-handle shape resizing
+      if (isResizingAnnotation && activeResizeHandle && resizeStartPos && resizeOriginalAnn) {
+        const dx = pos.x - resizeStartPos.x;
+        const dy = pos.y - resizeStartPos.y;
+
+        const origX = resizeOriginalAnn.x ?? 0;
+        const origY = resizeOriginalAnn.y ?? 0;
+        const origW = resizeOriginalAnn.width ?? 100;
+        const origH = resizeOriginalAnn.height ?? 100;
+
+        let newX = origX;
+        let newY = origY;
+        let newW = origW;
+        let newH = origH;
+
+        if (activeResizeHandle.includes('e')) newW = Math.max(20, origW + dx);
+        if (activeResizeHandle.includes('s')) newH = Math.max(20, origH + dy);
+
+        if (activeResizeHandle.includes('w')) {
+          const maxDx = origW - 20;
+          const actualDx = Math.min(maxDx, dx);
+          newX = origX + actualDx;
+          newW = origW - actualDx;
+        }
+
+        if (activeResizeHandle.includes('n')) {
+          const maxDy = origH - 20;
+          const actualDy = Math.min(maxDy, dy);
+          newY = origY + actualDy;
+          newH = origH - actualDy;
+        }
+
+        setResizeCurrentBounds({ x: newX, y: newY, width: newW, height: newH });
+        return;
+      }
+
+      // 2. Handle active shape dragging
       if (isDraggingAnnotation && dragStartPos && dragAnnOriginalState) {
         setDragDelta({
           x: pos.x - dragStartPos.x,
           y: pos.y - dragStartPos.y,
         });
         return;
+      }
+
+      // 3. Check for handle hovering to update cursor
+      if (selectedAnnotation && selectedAnnotation.type !== 'text') {
+        const bounds = getAnnotationBounds(selectedAnnotation);
+        const handleHit = getHitHandle(pos, bounds, 12);
+        setHoveredHandle(handleHit);
+      } else {
+        setHoveredHandle(null);
       }
 
       let foundHover: string | null = null;
@@ -331,6 +462,34 @@ export const AnnotationCanvasOverlay: React.FC<Props> = ({
 
   const handleMouseUp = () => {
     if (toolSettings.activeTool === 'select') {
+      // 1. Commit shape resize
+      if (
+        isResizingAnnotation &&
+        resizeOriginalAnn &&
+        resizeCurrentBounds &&
+        onUpdateAnnotation
+      ) {
+        const updated = AnnotationEntity.create(
+          {
+            ...resizeOriginalAnn.toJSON(),
+            x: resizeCurrentBounds.x,
+            y: resizeCurrentBounds.y,
+            width: resizeCurrentBounds.width,
+            height: resizeCurrentBounds.height,
+            updatedAt: Date.now(),
+          },
+          resizeOriginalAnn.id
+        );
+        onUpdateAnnotation(updated);
+      }
+
+      setIsResizingAnnotation(false);
+      setActiveResizeHandle(null);
+      setResizeStartPos(null);
+      setResizeOriginalAnn(null);
+      setResizeCurrentBounds(null);
+
+      // 2. Commit shape drag
       if (
         isDraggingAnnotation &&
         dragAnnOriginalState &&
@@ -389,6 +548,8 @@ export const AnnotationCanvasOverlay: React.FC<Props> = ({
         updatedAt: Date.now(),
       });
       onAddAnnotation(newAnn);
+      setSelectedAnnotationId(newAnn.id);
+      onSwitchTool?.('select');
     } else if (tool === 'text' && dragStart && dragCurrent) {
       const w = Math.max(240, Math.abs(dragCurrent.x - dragStart.x));
       const h = Math.max(100, Math.abs(dragCurrent.y - dragStart.y));
@@ -424,19 +585,25 @@ export const AnnotationCanvasOverlay: React.FC<Props> = ({
       onAddAnnotation(newAnn);
       setSelectedAnnotationId(newAnn.id);
       setEditingTextIdState(newAnn.id);
+      onSwitchTool?.('select');
     } else if (
-      (tool === 'rectangle' || tool === 'circle' || tool === 'arrow' || tool === 'line') &&
+      (tool === 'shape' || tool === 'rectangle' || tool === 'circle' || tool === 'arrow' || tool === 'line') &&
       dragStart &&
       dragCurrent
     ) {
       const w = dragCurrent.x - dragStart.x;
       const h = dragCurrent.y - dragStart.y;
       if (Math.abs(w) > 5 || Math.abs(h) > 5) {
+        const effectiveType = tool === 'shape' ? (toolSettings.selectedShapeType || 'rectangle') : tool;
         const newAnn = AnnotationEntity.create({
           pageIndex,
-          type: tool,
+          type: effectiveType,
           color: toolSettings.strokeColor,
           strokeWidth: toolSettings.strokeWidth,
+          fillColor: toolSettings.fillColor,
+          borderColor: toolSettings.borderColor || toolSettings.strokeColor,
+          borderWidth: toolSettings.borderWidth || toolSettings.strokeWidth,
+          borderStyle: toolSettings.borderStyle || 'solid',
           opacity: 1,
           x: dragStart.x,
           y: dragStart.y,
@@ -446,6 +613,8 @@ export const AnnotationCanvasOverlay: React.FC<Props> = ({
           updatedAt: Date.now(),
         });
         onAddAnnotation(newAnn);
+        setSelectedAnnotationId(newAnn.id);
+        onSwitchTool?.('select');
       }
     }
 
@@ -551,6 +720,23 @@ export const AnnotationCanvasOverlay: React.FC<Props> = ({
   const textAnnotations = annotations.filter((a) => a.type === 'text');
   const pptBoxes = textAnnotations.map(convertAnnotationToPPTBox);
 
+  // Compute cursor style based on hover / resize / tool
+  const getCanvasCursor = () => {
+    if (toolSettings.activeTool === 'eraser') return 'cursor-none';
+    if (toolSettings.activeTool === 'text') return 'cursor-text';
+    if (toolSettings.activeTool !== 'select') return 'cursor-crosshair';
+
+    if (hoveredHandle) {
+      if (hoveredHandle === 'nw' || hoveredHandle === 'se') return 'cursor-nwse-resize';
+      if (hoveredHandle === 'ne' || hoveredHandle === 'sw') return 'cursor-nesw-resize';
+      if (hoveredHandle === 'n' || hoveredHandle === 's') return 'cursor-ns-resize';
+      if (hoveredHandle === 'e' || hoveredHandle === 'w') return 'cursor-ew-resize';
+    }
+
+    if (hoveredAnnotationId || selectedAnnotationId) return 'cursor-move';
+    return 'cursor-default';
+  };
+
   return (
     <div className="relative w-full h-full select-none" style={{ width, height }}>
       {/* 2D Canvas for Drawings & Non-text Annotations */}
@@ -565,18 +751,9 @@ export const AnnotationCanvasOverlay: React.FC<Props> = ({
           setIsDrawing(false);
           setEraserPos(null);
           setIsDraggingAnnotation(false);
+          setIsResizingAnnotation(false);
         }}
-        className={`absolute inset-0 z-10 touch-none ${
-          toolSettings.activeTool === 'eraser'
-            ? 'cursor-none'
-            : toolSettings.activeTool === 'select'
-            ? hoveredAnnotationId || selectedAnnotationId
-              ? 'cursor-move'
-              : 'cursor-default'
-            : toolSettings.activeTool === 'text'
-            ? 'cursor-text'
-            : 'cursor-crosshair'
-        }`}
+        className={`absolute inset-0 z-10 touch-none ${getCanvasCursor()}`}
       />
 
       {/* RENDER ALL SLIDE TEXT ANNOTATIONS AS HIGH-PERFORMANCE PPT TEXT BOX SHAPES */}

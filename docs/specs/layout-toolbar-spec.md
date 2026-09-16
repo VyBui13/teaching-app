@@ -12,9 +12,10 @@ Tài liệu này quy định **Kiến trúc Layout Thanh công cụ Kép (Dual-R
 
 2. **ROW 2: CONTEXTUAL EXTENDED TOOLBAR (Thanh mở rộng Extend - Hiện động theo ngữ cảnh chọn)**
    - Tự động mở rộng mượt mà dưới Hàng 1 theo **2 Phương thức kích hoạt song song**:
-     - **Method 1 (Entity Selection Trigger):** Khi click chọn đối tượng trên Canvas (VD: chọn Khung chữ). Cho phép chỉnh sửa trực tiếp thuộc tính đối tượng đó.
-     - **Method 2 (Tool Selection Trigger):** Khi click chọn công cụ trên Hàng 1 (VD: chọn Khung chữ T). Cho phép cấu hình các thuộc tính mặc định trước khi vẽ/tạo mới đối tượng.
-   - Tự động ẩn khi người dùng hủy chọn đối tượng hoặc chuyển về công cụ `Con trỏ (V)` để tối ưu không gian hiển thị bài học.
+     - **Method 1 (Entity Selection Trigger):** Khi click chọn đối tượng trên Canvas (VD: chọn Khung chữ/Hình khối). Cho phép chỉnh sửa trực tiếp thuộc tính đối tượng đó.
+     - **Method 2 (Tool Selection Trigger):** Khi click chọn công cụ trên Hàng 1 (VD: chọn Khung chữ T / Hình khối S). Cho phép cấu hình các thuộc tính mặc định trước khi vẽ/tạo mới đối tượng.
+   - **Tự động chuyển về Con trỏ (Auto Tool Switch):** Khi vẽ xong bất kỳ đối tượng nào (Khung chữ, Hình khối), hệ thống tự động chọn đối tượng đó và chuyển tool về **`Con trỏ (V)`**, hỗ trợ kéo di chuyển và co giãn kích thước (8-Handle Resizing) ngay lập tức.
+   - **Tự động ẩn:** Khi click ra vùng trống Canvas (Deselect), thanh Extend tự động đóng lại để tối ưu không gian hiển thị bài học.
 
 ---
 
@@ -24,8 +25,10 @@ Tài liệu này quy định **Kiến trúc Layout Thanh công cụ Kép (Dual-R
 | :--- | :--- | :--- | :--- |
 | **Đang chọn Khung chữ** | Method 1 (`selectedAnnotation.type === 'text'`) | `TextBoxContextualSection.tsx` | - Badge `📌 Khung Chữ (Đang chọn)`<br>- Custom Font Select (`CustomDropdownSelect`)<br>- Font Size Stepper & Select<br>- Bold, Italic, Underline, Strikethrough<br>- Alignments (Trái, Giữa, Phải, Đều)<br>- `ColorSwatchPicker` Màu chữ<br>- `ColorSwatchPicker` Màu nền (kèm reset `Ø`)<br>- `ColorSwatchPicker` Màu viền (kèm reset `Ø`)<br>- Custom Border Style & Width Select<br>- `Auto-fit` vs `Fixed bounds` mode<br>- Duplicate (`Ctrl+D`) & Delete |
 | **Đang chọn Tool Khung chữ (T)** | Method 2 (`activeTool === 'text' & !selectedAnnotation`) | `TextBoxContextualSection.tsx` | - Badge `📌 Cấu hình Khung Chữ`<br>- Cấu hình thiết lập mặc định trước khi vẽ (Font, Cỡ chữ, Màu chữ, Màu nền, Màu viền, Căn lề...)<br>- (Nút Xóa / Duplicate ẩn) |
-| **Dùng Bút vẽ (B)** | Method 2 (`activeTool === 'pencil'`) | `PencilPropertyDropdown` | - Swatches màu nét vẽ Presets<br>- Thanh trượt cỡ nét vẽ Range Slider (`1px` - `24px`) |
-| **Chọn Hình vẽ Shape** | Method 1 (`selectedAnnotation.type !== 'text'`) | `ShapeContextualSection` | - Badge `📌 Thuộc tính Hình vẽ`<br>- `ColorSwatchPicker` Màu nét & Màu tô<br>- Border Width & Border Style<br>- Nút Xóa đối tượng |
+| **Đang chọn Nét Bút vẽ** | Method 1 (`selectedAnnotation.type === 'pencil'`) | `PencilContextualSection.tsx` | - Badge `📌 Nét Bút Vẽ (Đang chọn)`<br>- `ColorSwatchPicker` Màu nét vẽ<br>- Stepper & Dropdown Cỡ nét (`1px` - `24px`)<br>- Nút Xóa nét vẽ |
+| **Đang chọn Tool Bút vẽ (B)** | Method 2 (`activeTool === 'pencil' & !selectedAnnotation`) | `PencilContextualSection.tsx` | - Badge `📌 Cấu hình Bút Vẽ`<br>- `ColorSwatchPicker` Màu nét mặc định<br>- Stepper & Dropdown Cỡ nét mặc định (`1px` - `24px`) |
+| **Đang chọn Hình khối** | Method 1 (`isShapeSelected`) | `ShapeContextualSection.tsx` | - Badge `📌 Hình Khối (Đang chọn)`<br>- Dropdown đổi loại hình khối (Chữ nhật, Tròn, Mũi tên, Đường thẳng)<br>- `ColorSwatchPicker` Màu tô (Fill Color)<br>- `ColorSwatchPicker` Màu viền/nét (Stroke Color)<br>- Dropdown Kiểu viền & Độ dày viền<br>- Duplicate (`Ctrl+D`) & Delete |
+| **Đang chọn Tool Hình khối (S)** | Method 2 (`isShapeToolActive & !selectedAnnotation`) | `ShapeContextualSection.tsx` | - Badge `📌 Cấu hình Hình Khối`<br>- Chọn loại hình khối mặc định (Chữ nhật, Tròn, Mũi tên, Đường thẳng)<br>- Thiết lập màu tô, màu viền, kiểu viền, độ dày viền mặc định trước khi vẽ<br>- (Nút Xóa / Duplicate ẩn) |
 | **Chọn Bảng (`type === 'table'` - Tương lai)** | Method 1 | `TableContextualSection` | - Thêm/Xóa Hàng & Cột, Trộn/Tách ô<br>- `ColorSwatchPicker` Màu nền ô & Màu lưới |
 | **Chọn Hình ảnh (`type === 'image'` - Tương lai)** | Method 1 | `ImageContextualSection` | - Cắt ảnh (Crop), Bo góc (Radius), Xoay (Rotate)<br>- `ColorSwatchPicker` Màu viền |
 

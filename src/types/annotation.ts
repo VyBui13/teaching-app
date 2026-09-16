@@ -5,6 +5,7 @@ export type ToolType =
   | 'pencil'
   | 'eraser'
   | 'text'
+  | 'shape'
   | 'rectangle'
   | 'circle'
   | 'arrow'
@@ -32,7 +33,7 @@ export interface PathAnnotation extends BaseAnnotation {
 }
 
 export interface ShapeAnnotation extends BaseAnnotation {
-  type: 'rectangle' | 'circle' | 'arrow' | 'line';
+  type: 'rectangle' | 'circle' | 'arrow' | 'line' | 'shape';
   x: number;
   y: number;
   width: number;
@@ -55,6 +56,7 @@ export type Annotation = PathAnnotation | ShapeAnnotation | TextAnnotation;
 
 export interface ToolSettings {
   activeTool: ToolType;
+  selectedShapeType?: 'rectangle' | 'circle' | 'arrow' | 'line';
   strokeColor: string;
   fillColor: string;
   strokeWidth: number;

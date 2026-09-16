@@ -36,6 +36,16 @@ export function drawSmoothPath(
   ctx.restore();
 }
 
+function applyLineDashStyle(ctx: CanvasRenderingContext2D, borderStyle?: string, strokeWidth = 2) {
+  if (borderStyle === 'dashed') {
+    ctx.setLineDash([Math.max(6, strokeWidth * 2), Math.max(4, strokeWidth * 1.5)]);
+  } else if (borderStyle === 'dotted') {
+    ctx.setLineDash([Math.max(2, strokeWidth), Math.max(3, strokeWidth * 1.2)]);
+  } else {
+    ctx.setLineDash([]);
+  }
+}
+
 export function drawArrow(
   ctx: CanvasRenderingContext2D,
   fromX: number,
@@ -43,8 +53,11 @@ export function drawArrow(
   toX: number,
   toY: number,
   color: string,
-  strokeWidth: number
+  strokeWidth: number,
+  borderStyle?: string
 ) {
+  if (!color || color === 'transparent' || borderStyle === 'none' || strokeWidth <= 0) return;
+
   const headlen = Math.max(10, strokeWidth * 3);
   const dx = toX - fromX;
   const dy = toY - fromY;
@@ -55,13 +68,15 @@ export function drawArrow(
   ctx.fillStyle = color;
   ctx.lineWidth = strokeWidth;
   ctx.lineCap = 'round';
+  applyLineDashStyle(ctx, borderStyle, strokeWidth);
 
   ctx.beginPath();
   ctx.moveTo(fromX, fromY);
   ctx.lineTo(toX, toY);
   ctx.stroke();
 
-  // Draw arrowhead
+  // Draw arrowhead with solid fill
+  ctx.setLineDash([]);
   ctx.beginPath();
   ctx.moveTo(toX, toY);
   ctx.lineTo(
@@ -85,18 +100,22 @@ export function drawRectangle(
   h: number,
   strokeColor: string,
   fillColor?: string,
-  strokeWidth = 2
+  strokeWidth = 2,
+  borderStyle?: string
 ) {
   ctx.save();
-  ctx.strokeStyle = strokeColor;
-  ctx.lineWidth = strokeWidth;
 
   if (fillColor && fillColor !== 'transparent') {
     ctx.fillStyle = fillColor;
     ctx.fillRect(x, y, w, h);
   }
 
-  ctx.strokeRect(x, y, w, h);
+  if (strokeColor && strokeColor !== 'transparent' && borderStyle !== 'none' && strokeWidth > 0) {
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = strokeWidth;
+    applyLineDashStyle(ctx, borderStyle, strokeWidth);
+    ctx.strokeRect(x, y, w, h);
+  }
   ctx.restore();
 }
 
@@ -108,11 +127,10 @@ export function drawCircle(
   h: number,
   strokeColor: string,
   fillColor?: string,
-  strokeWidth = 2
+  strokeWidth = 2,
+  borderStyle?: string
 ) {
   ctx.save();
-  ctx.strokeStyle = strokeColor;
-  ctx.lineWidth = strokeWidth;
 
   const radiusX = Math.abs(w) / 2;
   const radiusY = Math.abs(h) / 2;
@@ -127,7 +145,12 @@ export function drawCircle(
     ctx.fill();
   }
 
-  ctx.stroke();
+  if (strokeColor && strokeColor !== 'transparent' && borderStyle !== 'none' && strokeWidth > 0) {
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = strokeWidth;
+    applyLineDashStyle(ctx, borderStyle, strokeWidth);
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -219,30 +242,62 @@ export function isPointInsideBounds(p: Point, bounds: BoundingBox, padding = 8):
   );
 }
 
+export type ResizeHandleType = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
+
+export function getHitHandle(p: Point, bounds: BoundingBox, hitRadius = 10): ResizeHandleType | null {
+  const midX = bounds.minX + bounds.width / 2;
+  const midY = bounds.minY + bounds.height / 2;
+
+  const handles: { type: ResizeHandleType; x: number; y: number }[] = [
+    { type: 'nw', x: bounds.minX, y: bounds.minY },
+    { type: 'n',  x: midX,        y: bounds.minY },
+    { type: 'ne', x: bounds.maxX, y: bounds.minY },
+    { type: 'e',  x: bounds.maxX, y: midY },
+    { type: 'se', x: bounds.maxX, y: bounds.maxY },
+    { type: 's',  x: midX,        y: bounds.maxY },
+    { type: 'sw', x: bounds.minX, y: bounds.maxY },
+    { type: 'w',  x: bounds.minX, y: midY },
+  ];
+
+  for (const h of handles) {
+    if (Math.hypot(p.x - h.x, p.y - h.y) <= hitRadius) {
+      return h.type;
+    }
+  }
+  return null;
+}
+
 export function drawSelectionBox(ctx: CanvasRenderingContext2D, bounds: BoundingBox) {
   ctx.save();
-  ctx.strokeStyle = '#3b82f6';
+  ctx.strokeStyle = '#2563eb';
   ctx.lineWidth = 1.5;
-  ctx.setLineDash([5, 5]);
+  ctx.setLineDash([5, 4]);
   ctx.strokeRect(bounds.minX, bounds.minY, bounds.width, bounds.height);
 
-  // Draw corner handles
+  // Draw 8 handles: nw, n, ne, e, se, s, sw, w
   ctx.fillStyle = '#ffffff';
   ctx.strokeStyle = '#2563eb';
   ctx.lineWidth = 2;
   ctx.setLineDash([]);
 
-  const handleSize = 8;
-  const corners = [
-    { x: bounds.minX, y: bounds.minY },
-    { x: bounds.maxX, y: bounds.minY },
-    { x: bounds.minX, y: bounds.maxY },
-    { x: bounds.maxX, y: bounds.maxY },
+  const midX = bounds.minX + bounds.width / 2;
+  const midY = bounds.minY + bounds.height / 2;
+
+  const handles = [
+    { type: 'nw', x: bounds.minX, y: bounds.minY },
+    { type: 'n',  x: midX,        y: bounds.minY },
+    { type: 'ne', x: bounds.maxX, y: bounds.minY },
+    { type: 'e',  x: bounds.maxX, y: midY },
+    { type: 'se', x: bounds.maxX, y: bounds.maxY },
+    { type: 's',  x: midX,        y: bounds.maxY },
+    { type: 'sw', x: bounds.minX, y: bounds.maxY },
+    { type: 'w',  x: bounds.minX, y: midY },
   ];
 
-  corners.forEach((c) => {
-    ctx.fillRect(c.x - handleSize / 2, c.y - handleSize / 2, handleSize, handleSize);
-    ctx.strokeRect(c.x - handleSize / 2, c.y - handleSize / 2, handleSize, handleSize);
+  const handleSize = 9;
+  handles.forEach((h) => {
+    ctx.fillRect(h.x - handleSize / 2, h.y - handleSize / 2, handleSize, handleSize);
+    ctx.strokeRect(h.x - handleSize / 2, h.y - handleSize / 2, handleSize, handleSize);
   });
 
   ctx.restore();
