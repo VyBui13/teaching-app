@@ -12,7 +12,7 @@
 
   font: 16px/145% var(--sans);
   color-scheme: light dark;
-  font-synthesis: none;
+  font-synthesis: style weight;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;

@@ -154,6 +154,7 @@ export const DocumentStage: React.FC<Props> = ({
                   width={width}
                   height={height}
                   pageIndex={idx}
+                  currentPageIndex={currentPageIndex}
                   annotations={pageAnnotations}
                   toolSettings={toolSettings}
                   onAddAnnotation={onAddAnnotation}

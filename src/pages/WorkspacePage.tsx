@@ -84,6 +84,7 @@ export const WorkspacePage: React.FC = () => {
       session.setAnnotationsForPage(pageIdx, newList);
       const updated = session.clone();
       setSession(updated);
+      setSelectedAnnotation(updatedAnn);
       autoSaveSession(updated);
     },
     [session, setSession, autoSaveSession]
