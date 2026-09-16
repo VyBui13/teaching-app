@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import type { ToolSettings } from '../../../types/annotation';
+import type { ToolSettings, ToolType } from '../../../types/annotation';
 import { AnnotationEntity } from '../domain/AnnotationEntity';
 import {
   type Point,
@@ -28,6 +28,7 @@ interface Props {
   onSelectAnnotation?: (annotation: AnnotationEntity | null) => void;
   editingTextId?: string | null;
   onDoneEditingText?: () => void;
+  onSwitchTool?: (tool: ToolType) => void;
 }
 
 export const AnnotationCanvasOverlay: React.FC<Props> = ({
@@ -43,6 +44,7 @@ export const AnnotationCanvasOverlay: React.FC<Props> = ({
   onSelectAnnotation,
   editingTextId,
   onDoneEditingText,
+  onSwitchTool,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -602,7 +604,13 @@ export const AnnotationCanvasOverlay: React.FC<Props> = ({
                 }}
                 onDoneEditing={(id, text) => {
                   setEditingTextIdState(null);
+                  setSelectedAnnotationId(id);
                   handleUpdatePPTBox(id, { text });
+                  const targetAnn = annotations.find((a) => a.id === id);
+                  if (targetAnn) {
+                    onSelectAnnotation?.(targetAnn);
+                  }
+                  onSwitchTool?.('select');
                 }}
                 onUpdateBox={handleUpdatePPTBox}
                 onUpdateStyle={handleUpdatePPTStyle}

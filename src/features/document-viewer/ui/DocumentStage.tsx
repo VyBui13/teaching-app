@@ -2,7 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { DocumentAggregate } from '../domain/DocumentAggregate';
 import { AnnotationCanvasOverlay } from '../../annotation-canvas/ui/AnnotationCanvasOverlay';
 import { AnnotationEntity } from '../../annotation-canvas/domain/AnnotationEntity';
-import type { ToolSettings } from '../../../types/annotation';
+import type { ToolSettings, ToolType } from '../../../types/annotation';
 
 interface Props {
   document: DocumentAggregate | null;
@@ -15,6 +15,7 @@ interface Props {
   onSelectAnnotation?: (annotation: AnnotationEntity | null) => void;
   editingTextId?: string | null;
   onDoneEditingText?: () => void;
+  onSwitchTool?: (tool: ToolType) => void;
   onOpenImportModal: () => void;
   onSelectPage?: (index: number) => void;
 }
@@ -30,6 +31,7 @@ export const DocumentStage: React.FC<Props> = ({
   onSelectAnnotation,
   editingTextId,
   onDoneEditingText,
+  onSwitchTool,
   onOpenImportModal,
   onSelectPage,
 }) => {
@@ -163,6 +165,7 @@ export const DocumentStage: React.FC<Props> = ({
                   onSelectAnnotation={onSelectAnnotation}
                   editingTextId={editingTextId}
                   onDoneEditingText={onDoneEditingText}
+                  onSwitchTool={onSwitchTool}
                 />
               </div>
             </div>

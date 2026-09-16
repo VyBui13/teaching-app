@@ -184,6 +184,13 @@ export const WorkspacePage: React.FC = () => {
 
       const ctrlOrCmd = e.ctrlKey || e.metaKey;
 
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedAnnotation) {
+        e.preventDefault();
+        handleDeleteAnnotation(selectedAnnotation.id);
+        setSelectedAnnotation(null);
+        return;
+      }
+
       if (ctrlOrCmd && (e.key === 'z' || e.key === 'Z')) {
         e.preventDefault();
         handleUndo();
@@ -215,7 +222,7 @@ export const WorkspacePage: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleUndo, handleRedo, handleClearPage]);
+  }, [handleUndo, handleRedo, handleClearPage, handleDeleteAnnotation, selectedAnnotation]);
 
   return (
     <div className="flex flex-col h-screen w-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 overflow-hidden font-sans select-none transition-colors">
@@ -304,6 +311,7 @@ export const WorkspacePage: React.FC = () => {
                   onSelectAnnotation={(ann) => setSelectedAnnotation(ann)}
                   editingTextId={editingTextId}
                   onDoneEditingText={() => setEditingTextId(null)}
+                  onSwitchTool={(tool) => setToolSettings((prev) => ({ ...prev, activeTool: tool }))}
                   onOpenImportModal={() => {}}
                   onSelectPage={(idx) => setCurrentPageIndex(idx)}
                 />
