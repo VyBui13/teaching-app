@@ -197,25 +197,8 @@ export const ToolPropertyBar: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Right Group: Text Font Size & Global Actions */}
+        {/* Right Group: Global Actions (Undo, Redo, Clear) */}
         <div className="flex items-center gap-3 flex-wrap">
-          {/* Text Font Size (if text tool active & no annotation selected) */}
-          {!selectedAnnotation && settings.activeTool === 'text' && (
-            <select
-              value={settings.fontSize}
-              onChange={(e) => onChangeSettings({ fontSize: Number(e.target.value) })}
-              className="bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 rounded-xl px-2 py-1 text-xs font-semibold focus:outline-none cursor-pointer"
-            >
-              <option value={14}>14px</option>
-              <option value={18}>18px</option>
-              <option value={24}>24px</option>
-              <option value={32}>32px</option>
-              <option value={48}>48px</option>
-              <option value={64}>64px</option>
-            </select>
-          )}
-
-          {/* Undo, Redo, Clear */}
           <div className="flex items-center gap-1">
             <button
               onClick={onUndo}
@@ -252,26 +235,35 @@ export const ToolPropertyBar: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Row 2: EXTENDED CONTEXTUAL PROPERTY SECTION (Extends when an element is selected) */}
-      {selectedAnnotation && (
+      {/* Row 2: EXTENDED CONTEXTUAL PROPERTY SECTION */}
+      {/* 2 Trigger Methods: (1) Entity selection on canvas OR (2) Active creation tool selection on Row 1 */}
+      {(selectedAnnotation || settings.activeTool === 'text') && (
         <div className="w-full border-t border-slate-200/80 dark:border-slate-800/80 bg-slate-50/90 dark:bg-slate-950/80 px-4 py-1.5 flex flex-wrap items-center justify-between gap-3 text-xs animate-in slide-in-from-top-1 duration-150">
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Context Badge */}
             <span className="font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5 bg-indigo-100/80 dark:bg-indigo-950/80 px-2.5 py-1 rounded-lg text-xs">
-              {selectedAnnotation.type === 'text' ? (
+              {selectedAnnotation ? (
+                selectedAnnotation.type === 'text' ? (
+                  <>
+                    <Type className="w-3.5 h-3.5" />
+                    <span>Khung Chữ (Đang chọn)</span>
+                  </>
+                ) : (
+                  <>
+                    <MousePointer className="w-3.5 h-3.5" />
+                    <span>Đối tượng đang chọn</span>
+                  </>
+                )
+              ) : settings.activeTool === 'text' ? (
                 <>
                   <Type className="w-3.5 h-3.5" />
-                  <span>Khung Chữ</span>
+                  <span>Cấu hình Khung Chữ</span>
                 </>
-              ) : (
-                <>
-                  <MousePointer className="w-3.5 h-3.5" />
-                  <span>Đối tượng đang chọn</span>
-                </>
-              )}
+              ) : null}
             </span>
 
-            {/* EXTENDED CONTEXTUAL SECTION FOR TEXT BOX */}
-            {selectedAnnotation.type === 'text' && onUpdateSelectedAnnotation && (
+            {/* METHOD 1: EXTENDED SECTION FOR SELECTED TEXT BOX */}
+            {selectedAnnotation && selectedAnnotation.type === 'text' && onUpdateSelectedAnnotation && (
               <TextBoxContextualSection
                 annotation={selectedAnnotation}
                 onUpdateAnnotation={onUpdateSelectedAnnotation}
@@ -279,8 +271,56 @@ export const ToolPropertyBar: React.FC<Props> = ({
               />
             )}
 
+            {/* METHOD 2: EXTENDED SECTION FOR ACTIVE TEXT CREATION TOOL (DEFAULT SETTINGS) */}
+            {!selectedAnnotation && settings.activeTool === 'text' && (
+              <TextBoxContextualSection
+                annotation={
+                  AnnotationEntity.create(
+                    {
+                      pageIndex: 0,
+                      type: 'text',
+                      color: settings.strokeColor || '#0f172a',
+                      strokeWidth: settings.strokeWidth || 2,
+                      opacity: settings.opacity || 1,
+                      fontSize: settings.fontSize || 20,
+                      fontFamily: settings.fontFamily || 'Geist Variable, sans-serif',
+                      fillColor: settings.fillColor || 'transparent',
+                      borderColor: settings.borderColor || 'transparent',
+                      borderWidth: settings.borderWidth ?? 0,
+                      borderStyle: settings.borderStyle || 'none',
+                      textAlign: settings.textAlign || 'left',
+                      fontWeight: settings.fontWeight || 'normal',
+                      fontStyle: settings.fontStyle || 'normal',
+                      textDecoration: settings.textDecoration || 'none',
+                      boxSizingMode: settings.boxSizingMode || 'auto-fit',
+                      createdAt: Date.now(),
+                      updatedAt: Date.now(),
+                    },
+                    'default-text-settings'
+                  )
+                }
+                onUpdateAnnotation={(updated) => {
+                  const data = updated.toJSON();
+                  onChangeSettings({
+                    strokeColor: data.color,
+                    fontSize: data.fontSize,
+                    fontFamily: data.fontFamily,
+                    fillColor: data.fillColor,
+                    borderColor: data.borderColor,
+                    borderWidth: data.borderWidth,
+                    borderStyle: data.borderStyle,
+                    textAlign: data.textAlign,
+                    fontWeight: data.fontWeight,
+                    fontStyle: data.fontStyle,
+                    textDecoration: data.textDecoration,
+                    boxSizingMode: data.boxSizingMode,
+                  });
+                }}
+              />
+            )}
+
             {/* EXTENDED CONTEXTUAL SECTION FOR CANVAS NON-TEXT SHAPES */}
-            {selectedAnnotation.type !== 'text' && (
+            {selectedAnnotation && selectedAnnotation.type !== 'text' && (
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1 pl-1">
                   {PRESET_COLORS.map((color) => (
@@ -320,8 +360,8 @@ export const ToolPropertyBar: React.FC<Props> = ({
             )}
 
             {/* ARCHITECTURE READY FOR FUTURE ELEMENT TYPES:
-                {selectedAnnotation.type === 'table' && <TableContextualSection ... />}
-                {selectedAnnotation.type === 'image' && <ImageContextualSection ... />}
+                {selectedAnnotation?.type === 'table' && <TableContextualSection ... />}
+                {selectedAnnotation?.type === 'image' && <ImageContextualSection ... />}
             */}
           </div>
         </div>

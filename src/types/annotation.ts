@@ -1,3 +1,5 @@
+import type { BoxSizingMode, BorderStyle, TextAlign } from '../features/ppt-text-box/types/textbox.types';
+
 export type ToolType = 
   | 'select'
   | 'pencil'
@@ -58,4 +60,14 @@ export interface ToolSettings {
   strokeWidth: number;
   fontSize: number;
   opacity: number;
+  fontFamily?: string;
+  borderColor?: string;
+  borderWidth?: number;
+  borderStyle?: BorderStyle;
+  textAlign?: TextAlign;
+  fontWeight?: 'normal' | 'bold';
+  fontStyle?: 'normal' | 'italic';
+  textDecoration?: 'none' | 'underline' | 'line-through';
+  boxSizingMode?: BoxSizingMode;
 }
+
