@@ -30,6 +30,7 @@ interface Props {
   onUpdateSelectedAnnotation?: (updated: AnnotationEntity) => void;
   onDeleteSelectedAnnotation?: () => void;
   onEditSelectedText?: () => void;
+  onUnselectAnnotation?: () => void;
 }
 
 const SHAPE_TOOLS: ToolType[] = ['shape', 'rectangle', 'circle', 'arrow', 'line'];
@@ -47,6 +48,7 @@ export const ToolPropertyBar: React.FC<Props> = ({
   selectedAnnotation,
   onUpdateSelectedAnnotation,
   onDeleteSelectedAnnotation,
+  onUnselectAnnotation,
 }) => {
   const tools: Array<{ id: ToolType; label: string; icon: React.ReactNode }> = [
     { id: 'select', label: 'Con trỏ (V)', icon: <MousePointer className="w-4 h-4" /> },
@@ -56,9 +58,21 @@ export const ToolPropertyBar: React.FC<Props> = ({
     { id: 'shape', label: 'Hình khối (S)', icon: <Shapes className="w-4 h-4" /> },
   ];
 
-  const isShapeToolActive = SHAPE_TOOLS.includes(settings.activeTool);
+  const isShapeToolActive =
+    SHAPE_TOOLS.includes(settings.activeTool) ||
+    (selectedAnnotation ? SHAPE_TOOLS.includes(selectedAnnotation.type) : false);
+
   const isShapeSelected =
     selectedAnnotation && SHAPE_TOOLS.includes(selectedAnnotation.type);
+
+  const isTextToolActive =
+    settings.activeTool === 'text' || selectedAnnotation?.type === 'text';
+
+  const isPencilToolActive =
+    settings.activeTool === 'pencil' || selectedAnnotation?.type === 'pencil';
+
+  const isSelectToolActive =
+    settings.activeTool === 'select' && !selectedAnnotation;
 
   return (
     <div className="w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex flex-col z-30 select-none text-slate-800 dark:text-slate-100 shadow-sm transition-colors">
@@ -88,12 +102,21 @@ export const ToolPropertyBar: React.FC<Props> = ({
               const isActive =
                 t.id === 'shape'
                   ? isShapeToolActive
+                  : t.id === 'text'
+                  ? isTextToolActive
+                  : t.id === 'pencil'
+                  ? isPencilToolActive
+                  : t.id === 'select'
+                  ? isSelectToolActive
                   : settings.activeTool === t.id;
 
               return (
                 <button
                   key={t.id}
-                  onClick={() => onChangeSettings({ activeTool: t.id })}
+                  onClick={() => {
+                    onUnselectAnnotation?.();
+                    onChangeSettings({ activeTool: t.id });
+                  }}
                   className={`p-2 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition ${
                     isActive
                       ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/30 font-bold'

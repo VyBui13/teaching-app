@@ -73,6 +73,17 @@ export const WorkspacePage: React.FC = () => {
     autoSaveSession(updated);
   };
 
+  // Handle selecting an annotation entity on canvas
+  const handleSelectAnnotation = useCallback((ann: AnnotationEntity | null) => {
+    setSelectedAnnotation(ann);
+    if (ann && ['rectangle', 'circle', 'arrow', 'line'].includes(ann.type)) {
+      setToolSettings((prev) => ({
+        ...prev,
+        selectedShapeType: ann.type as any,
+      }));
+    }
+  }, []);
+
   // Handle updating existing annotation (Moving or re-styling)
   const handleUpdateAnnotation = useCallback(
     (updatedAnn: AnnotationEntity) => {
@@ -205,16 +216,22 @@ export const WorkspacePage: React.FC = () => {
         handleClearPage();
       } else if (!ctrlOrCmd) {
         if (e.key === 'b' || e.key === 'B') {
+          setSelectedAnnotation(null);
           setToolSettings((prev) => ({ ...prev, activeTool: 'pencil' }));
         } else if (e.key === 't' || e.key === 'T') {
+          setSelectedAnnotation(null);
           setToolSettings((prev) => ({ ...prev, activeTool: 'text' }));
         } else if (e.key === 'r' || e.key === 'R') {
+          setSelectedAnnotation(null);
           setToolSettings((prev) => ({ ...prev, activeTool: 'rectangle' }));
         } else if (e.key === 'c' || e.key === 'C') {
+          setSelectedAnnotation(null);
           setToolSettings((prev) => ({ ...prev, activeTool: 'circle' }));
         } else if (e.key === 'e' || e.key === 'E') {
+          setSelectedAnnotation(null);
           setToolSettings((prev) => ({ ...prev, activeTool: 'eraser' }));
         } else if (e.key === 'v' || e.key === 'V' || e.key === 'Escape') {
+          setSelectedAnnotation(null);
           setToolSettings((prev) => ({ ...prev, activeTool: 'select' }));
         }
       }
@@ -277,6 +294,7 @@ export const WorkspacePage: React.FC = () => {
                 isSidebarOpen={isSidebarOpen}
                 onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
                 selectedAnnotation={selectedAnnotation}
+                onUnselectAnnotation={() => setSelectedAnnotation(null)}
                 onUpdateSelectedAnnotation={handleUpdateAnnotation}
                 onDeleteSelectedAnnotation={() => {
                   if (selectedAnnotation) {
@@ -305,10 +323,11 @@ export const WorkspacePage: React.FC = () => {
                   currentPageIndex={currentPageIndex}
                   annotations={session.annotations}
                   toolSettings={toolSettings}
+                  selectedAnnotation={selectedAnnotation}
                   onAddAnnotation={handleAddAnnotation}
                   onUpdateAnnotation={handleUpdateAnnotation}
                   onDeleteAnnotation={handleDeleteAnnotation}
-                  onSelectAnnotation={(ann) => setSelectedAnnotation(ann)}
+                  onSelectAnnotation={handleSelectAnnotation}
                   editingTextId={editingTextId}
                   onDoneEditingText={() => setEditingTextId(null)}
                   onSwitchTool={(tool) => setToolSettings((prev) => ({ ...prev, activeTool: tool }))}

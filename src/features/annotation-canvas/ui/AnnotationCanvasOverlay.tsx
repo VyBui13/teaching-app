@@ -29,6 +29,7 @@ interface Props {
   onUpdateAnnotation?: (annotation: AnnotationEntity) => void;
   onDeleteAnnotation?: (id: string) => void;
   onSelectAnnotation?: (annotation: AnnotationEntity | null) => void;
+  selectedAnnotation?: AnnotationEntity | null;
   editingTextId?: string | null;
   onDoneEditingText?: () => void;
   onSwitchTool?: (tool: ToolType) => void;
@@ -45,6 +46,7 @@ export const AnnotationCanvasOverlay: React.FC<Props> = ({
   onUpdateAnnotation,
   onDeleteAnnotation,
   onSelectAnnotation,
+  selectedAnnotation: selectedAnnotationProp,
   editingTextId,
   onDoneEditingText,
   onSwitchTool,
@@ -80,12 +82,28 @@ export const AnnotationCanvasOverlay: React.FC<Props> = ({
 
   const selectedAnnotation = annotations.find((a) => a.id === selectedAnnotationId) || null;
 
-  // Sync selected annotation up to parent ONLY if an annotation is actively selected on this slide page
+  // Sync selected annotation from parent (WorkspacePage)
   useEffect(() => {
-    if (selectedAnnotationId !== null && selectedAnnotation) {
-      onSelectAnnotation?.(selectedAnnotation);
+    if (selectedAnnotationProp === null) {
+      setSelectedAnnotationId(null);
+      setEditingTextIdState(null);
+    } else if (selectedAnnotationProp) {
+      if (selectedAnnotationProp.pageIndex === pageIndex) {
+        setSelectedAnnotationId(selectedAnnotationProp.id);
+      } else {
+        setSelectedAnnotationId(null);
+        setEditingTextIdState(null);
+      }
     }
-  }, [selectedAnnotation, selectedAnnotationId, onSelectAnnotation]);
+  }, [selectedAnnotationProp, pageIndex]);
+
+  // Force clear selection when active tool changes to a creation tool
+  useEffect(() => {
+    if (toolSettings.activeTool !== 'select' && toolSettings.activeTool !== 'text') {
+      setSelectedAnnotationId(null);
+      setEditingTextIdState(null);
+    }
+  }, [toolSettings.activeTool]);
 
   // Clear local selection state when user scrolls to a different slide page
   useEffect(() => {
@@ -343,6 +361,7 @@ export const AnnotationCanvasOverlay: React.FC<Props> = ({
 
       if (hitAnn) {
         setSelectedAnnotationId(hitAnn.id);
+        onSelectAnnotation?.(hitAnn);
         setIsDraggingAnnotation(true);
         setDragStartPos(pos);
         setDragAnnOriginalState(hitAnn);
@@ -548,8 +567,6 @@ export const AnnotationCanvasOverlay: React.FC<Props> = ({
         updatedAt: Date.now(),
       });
       onAddAnnotation(newAnn);
-      setSelectedAnnotationId(newAnn.id);
-      onSwitchTool?.('select');
     } else if (tool === 'text' && dragStart && dragCurrent) {
       const w = Math.max(240, Math.abs(dragCurrent.x - dragStart.x));
       const h = Math.max(100, Math.abs(dragCurrent.y - dragStart.y));
@@ -585,7 +602,7 @@ export const AnnotationCanvasOverlay: React.FC<Props> = ({
       onAddAnnotation(newAnn);
       setSelectedAnnotationId(newAnn.id);
       setEditingTextIdState(newAnn.id);
-      onSwitchTool?.('select');
+      onSelectAnnotation?.(newAnn);
     } else if (
       (tool === 'shape' || tool === 'rectangle' || tool === 'circle' || tool === 'arrow' || tool === 'line') &&
       dragStart &&
@@ -614,6 +631,7 @@ export const AnnotationCanvasOverlay: React.FC<Props> = ({
         });
         onAddAnnotation(newAnn);
         setSelectedAnnotationId(newAnn.id);
+        onSelectAnnotation?.(newAnn);
         onSwitchTool?.('select');
       }
     }
@@ -715,6 +733,7 @@ export const AnnotationCanvasOverlay: React.FC<Props> = ({
     const clone = AnnotationEntity.create(cloneProps);
     onAddAnnotation(clone);
     setSelectedAnnotationId(clone.id);
+    onSelectAnnotation?.(clone);
   };
 
   const textAnnotations = annotations.filter((a) => a.type === 'text');

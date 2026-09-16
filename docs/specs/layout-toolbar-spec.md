@@ -14,7 +14,11 @@ Tài liệu này quy định **Kiến trúc Layout Thanh công cụ Kép (Dual-R
    - Tự động mở rộng mượt mà dưới Hàng 1 theo **2 Phương thức kích hoạt song song**:
      - **Method 1 (Entity Selection Trigger):** Khi click chọn đối tượng trên Canvas (VD: chọn Khung chữ/Hình khối). Cho phép chỉnh sửa trực tiếp thuộc tính đối tượng đó.
      - **Method 2 (Tool Selection Trigger):** Khi click chọn công cụ trên Hàng 1 (VD: chọn Khung chữ T / Hình khối S). Cho phép cấu hình các thuộc tính mặc định trước khi vẽ/tạo mới đối tượng.
-   - **Tự động chuyển về Con trỏ (Auto Tool Switch):** Khi vẽ xong bất kỳ đối tượng nào (Khung chữ, Hình khối), hệ thống tự động chọn đối tượng đó và chuyển tool về **`Con trỏ (V)`**, hỗ trợ kéo di chuyển và co giãn kích thước (8-Handle Resizing) ngay lập tức.
+   - **Quy tắc Bỏ chọn khi Chuyển công cụ (Unselect Entity on Tool Switch):** Khi đang có một đối tượng được chọn trên màn hình (`selectedAnnotation !== null`), nếu click chọn bất kỳ công cụ nào khác trên Hàng 1 hoặc dùng phím tắt (B, T, R, C, E, V, Escape), hệ thống tự động bỏ chọn đối tượng đó (`selectedAnnotation = null`).
+   - **Quy tắc Tự động Highlight Công cụ khi Select Entity (Auto Tool Active Highlight):** Khi người dùng click chọn 1 đối tượng trên Canvas (Khung chữ/Hình khối/Bút vẽ), hệ thống tự động đồng bộ công cụ trên Hàng 1 và highlight sáng xanh nút bấm tương ứng (Khung chữ `T` hoặc Hình khối `S`).
+   - **Quy tắc Chuyển đổi công cụ sau khi Thao tác (Tool Switch Behavior After Usage):**
+     - **Bút vẽ (`pencil`) & Tẩy xóa (`eraser`) - Continuous Mode:** Bút vẽ và Tẩy xóa giữ nguyên công cụ sau khi vẽ/xóa, KHÔNG tự động chuyển về Con trỏ (V) để vẽ/xóa liên tục.
+     - **Thẻ chữ (`text`) & Hình khối (`shape`):** Sau khi kéo vẽ tạo xong, hệ thống tự động chọn đối tượng vừa tạo và tự động chuyển về **`Con trỏ (V)`**, hỗ trợ kéo di chuyển và co giãn kích thước (8-Handle Resizing) ngay lập tức.
    - **Tự động ẩn:** Khi click ra vùng trống Canvas (Deselect), thanh Extend tự động đóng lại để tối ưu không gian hiển thị bài học.
 
 ---

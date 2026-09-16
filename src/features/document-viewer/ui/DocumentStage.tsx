@@ -13,6 +13,7 @@ interface Props {
   onUpdateAnnotation?: (annotation: AnnotationEntity) => void;
   onDeleteAnnotation?: (id: string) => void;
   onSelectAnnotation?: (annotation: AnnotationEntity | null) => void;
+  selectedAnnotation?: AnnotationEntity | null;
   editingTextId?: string | null;
   onDoneEditingText?: () => void;
   onSwitchTool?: (tool: ToolType) => void;
@@ -29,6 +30,7 @@ export const DocumentStage: React.FC<Props> = ({
   onUpdateAnnotation,
   onDeleteAnnotation,
   onSelectAnnotation,
+  selectedAnnotation,
   editingTextId,
   onDoneEditingText,
   onSwitchTool,
@@ -159,6 +161,7 @@ export const DocumentStage: React.FC<Props> = ({
                   currentPageIndex={currentPageIndex}
                   annotations={pageAnnotations}
                   toolSettings={toolSettings}
+                  selectedAnnotation={selectedAnnotation}
                   onAddAnnotation={onAddAnnotation}
                   onUpdateAnnotation={onUpdateAnnotation}
                   onDeleteAnnotation={onDeleteAnnotation}

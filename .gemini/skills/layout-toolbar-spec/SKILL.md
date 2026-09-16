@@ -74,10 +74,17 @@ Thanh công cụ mở rộng (Row 2 Extend) được hiển thị linh hoạt th
    - **Nút ẩn/hiện:** Nút Xóa / Duplicate ẩn đi (vì chưa có entity cụ thể).
    - **Badge hiển thị:** `📌 Cấu hình Khung Chữ`.
 
-- **Tự động chuyển về Con trỏ (Auto Tool Switch to Select):** Ngay sau khi người dùng kết thúc thao tác kéo vẽ 1 đối tượng mới (Khung chữ, Hình khối, Nét vẽ), hệ thống bắt buộc tự động:
-  1. Tự động chọn (Select) đối tượng vừa tạo (`setSelectedAnnotationId(newAnn.id)`).
-  2. Tự động chuyển công cụ hoạt động trên Hàng 1 về **`Con trỏ (V)`** (`onSwitchTool('select')`).
-  3. Khi ở chế độ Con trỏ (V), giáo viên có thể lập tức di chuyển (Drag-to-move) hoặc co giãn kích thước (8-Handle Resizing) đối tượng vừa tạo.
+- **Quy tắc Bỏ chọn khi Chuyển công cụ (Unselect Entity on Tool Switch):**
+  Khi đang có một đối tượng được chọn trên màn hình (`selectedAnnotation !== null`), nếu người dùng click chọn bất kỳ công cụ nào khác trên Hàng 1 (Con trỏ, Bút vẽ, Thẻ chữ, Hình khối, Tẩy) hoặc dùng phím tắt chuyển công cụ (B, T, R, C, E, V, Escape), hệ thống sẽ **tự động bỏ chọn đối tượng đó (`selectedAnnotation = null`)** để chuyển sang chế độ cấu hình của công cụ mới.
+
+- **Quy tắc Tự động Highlight Công cụ khi Select Entity (Auto Tool Active Highlight):**
+  Khi người dùng click chọn 1 đối tượng trên Canvas (VD: chọn Khung chữ hoặc Hình khối), hệ thống tự động đồng bộ công cụ hoạt động trên Hàng 1 (`activeTool`) và highlight sáng xanh nút bấm tương ứng (Khung chữ `T` hoặc Hình khối `S`), giúp giao diện thanh công cụ đồng nhất với ngữ cảnh đang chỉnh sửa.
+
+- **Quy tắc Chuyển đổi công cụ sau khi Thao tác (Tool Switch Behavior After Usage):**
+  1. **Bút vẽ (`pencil`) & Tẩy xóa (`eraser`) - Continuous Mode:** Bút vẽ và Tẩy xóa duy trì chế độ vẽ/xóa liên tục. Sau khi hoàn thành một nét vẽ hoặc thao tác xóa, công cụ **KHÔNG** tự động quay về Con trỏ (V) và **KHÔNG** tự động chọn nét vẽ vừa tạo, giúp giáo viên thoải mái vẽ/xóa nhiều lần liên tiếp.
+  2. **Thẻ chữ (`text`) & Hình khối (`shape` / `rectangle` / `circle` / `arrow` / `line`):** Ngay sau khi người dùng hoàn thành thao tác kéo vẽ tạo đối tượng mới:
+     - Tự động chọn đối tượng vừa tạo (`setSelectedAnnotationId(newAnn.id)`).
+     - Tự động chuyển công cụ trên Hàng 1 về **`Con trỏ (V)`** (`onSwitchTool('select')`), cho phép giáo viên lập tức di chuyển (Drag-to-move) hoặc co giãn kích thước (8-Handle Resizing).
 - **Tự động ẩn (Deselect & Close):** Khi người dùng click ra vùng trống ngoài Canvas (Deselect), đối tượng hủy chọn, thanh Extend tự động đóng lại và công cụ vẫn giữ ở chế độ `Con trỏ (V)` để trả lại không gian tối đa cho bài học.
 
 ### 3.2. Bảng Ánh xạ Ngữ cảnh (Contextual Mapping Matrix)
